@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Credit Risk Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column, client sliders on the left, decision and its reasons on the right; stacks on phones */
+:root {
+  --bg: #F7F8FA; --surface: #FFFFFF; --ink: #1B2A41; --muted: #5F6B7A; --line: #DCE1E8;
+  --accent: #D98A1E; --risk: #C0392B; --safe: #2B6CB0; --ok: #2E8B57;
+  --display: "Source Serif 4", Cambria, Georgia, serif;
+  --body: "IBM Plex Sans", Calibri, Arial, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0F1724; --surface: #17233A; --ink: #E8EDF4; --muted: #9AA7B8; --line: #2A3A55; --accent: #F2A541; --risk: #F07167; --safe: #6CA6E8; --ok: #5CC28A; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #0F1724; --surface: #17233A; --ink: #E8EDF4; --muted: #9AA7B8; --line: #2A3A55; --accent: #F2A541; --risk: #F07167; --safe: #6CA6E8; --ok: #5CC28A; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 40px; }
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 20px; }
+header h1 { font: 700 clamp(28px, 5vw, 42px)/1.1 var(--display); margin: 0 0 6px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 62ch; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; min-width: 0; }
+.label { font: 600 12px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; }
+.presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+button { font: 500 14px var(--body); color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.field { display: grid; gap: 4px; margin-bottom: 14px; }
+.field-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.field-top span:first-child { font-weight: 500; }
+.field-top output { font: 500 14px var(--mono); font-variant-numeric: tabular-nums; }
+.hint { font-size: 12px; color: var(--muted); }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-bottom: 6px; }
+.prob { font: 700 64px/1 var(--display); font-variant-numeric: tabular-nums; }
+.badge { font: 600 13px var(--body); padding: 4px 12px; border-radius: 999px; border: 1px solid currentColor; }
+.meter { position: relative; height: 10px; border-radius: 5px; background: var(--line); margin: 14px 0 6px; }
+.meter i { position: absolute; inset: 0 auto 0 0; border-radius: 5px; background: var(--risk); transition: width .25s; }
+.meter b { position: absolute; top: -4px; width: 2px; height: 18px; background: var(--ink); }
+.scale { display: flex; justify-content: space-between; font: 12px var(--mono); color: var(--muted); }
+.bars { display: grid; gap: 10px; margin-top: 18px; }
+.bar { display: grid; grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr) 4.2em; gap: 10px; align-items: center; font-size: 14px; }
+.track { position: relative; height: 18px; }
+.track::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line); }
+.fill { position: absolute; top: 2px; height: 14px; border-radius: 3px; transition: all .25s; }
+.val { font: 13px var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.legend { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.note { font-size: 13px; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); max-width: 75ch; }
+@media (prefers-reduced-motion: reduce) { .meter i, .fill { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Why would a bank say no?</h1>
+    <p>Move the sliders. The model gives the chance that this client will have serious problems with payments, and shows which values push the risk up or down.</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="in-h">
+      <p class="label" id="in-h">Client data</p>
+      <div class="presets">
+        <button type="button" id="p-client" aria-pressed="true">Client #314607 (real, defaulted)</button>
+        <button type="button" id="p-typical" aria-pressed="false">Typical client</button>
+      </div>
+      <div id="fields"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="out-h" aria-live="polite">
+      <p class="label" id="out-h">Decision</p>
+      <div class="verdict">
+        <span class="prob" id="prob">0%</span>
+        <span class="badge" id="badge">Low risk</span>
+      </div>
+      <div class="note">chance of default</div>
+      <div class="meter" aria-hidden="true"><i id="meter"></i><b id="avgmark"></b></div>
+      <div class="scale"><span>0%</span><span id="avglabel">average</span><span>50%</span></div>
+
+      <p class="label" style="margin-top:26px">Reasons</p>
+      <div class="bars" id="bars"></div>
+      <div class="legend"><span>lowers risk</span><span>raises risk</span></div>
+      <p class="note" style="margin-top:14px">Credit amount and goods price work as a pair: a loan bigger than the price of the goods raises the risk.</p>
+    </section>
+  </div>
+
+  <footer>
+    Simplified demo model: logistic regression on 6 features of the Home Credit Default Risk data, test ROC AUC 0.732. The main study uses XGBoost on 246 features (ROC AUC 0.762), so this page shows the idea, not the exact numbers. Each reason is the feature's effect on the risk compared with an average client. Research Methods and Tools, Astana IT University, Abdanur Ayazbek.
+  </footer>
+</div>
+
+<script>
+const M = {
+  mean: [0.5041776576226836, 0.5144545695303866, 0.5153763806099496, 599245.7301632467, 538544.035854525, 63702.66987658938],
+  std: [0.13955285445043616, 0.19079109800707775, 0.17467176456179456, 402144.14685908944, 368967.3636202978, 141182.1949007547],
+  coef: [-0.22236188604482868, -0.45308036169436633, -0.45376274603712463, 1.089767403264149, -1.1403063852997786, -0.11132925539054714],
+  b: -2.7007786359376786
+};
+// slider value -> model value. Years employed is turned back into the dataset's DAYS_EMPLOYED (negative days).
+const F = [
+  { id: "ext1", name: "External score 1", hint: "credit score from another source, 0 to 1", min: 0, max: 1, step: 0.01, fmt: v => v.toFixed(2), toX: v => v },
+  { id: "ext2", name: "External score 2", hint: "credit score from another source, 0 to 1", min: 0, max: 1, step: 0.01, fmt: v => v.toFixed(2), toX: v => v },
+  { id: "ext3", name: "External score 3", hint: "credit score from another source, 0 to 1", min: 0, max: 1, step: 0.01, fmt: v => v.toFixed(2), toX: v => v },
+  { id: "credit", name: "Credit amount", hint: "loan size", min: 45000, max: 2500000, step: 5000, fmt: v => Math.round(v).toLocaleString("en-US"), toX: v => v },
+  { id: "goods", name: "Goods price", hint: "price of what the loan pays for", min: 40000, max: 2500000, step: 5000, fmt: v => Math.round(v).toLocaleString("en-US"), toX: v => v },
+  { id: "years", name: "Years employed", hint: "at the current job", min: 0, max: 40, step: 0.1, fmt: v => v.toFixed(1), toX: v => -v * 365.25 }
+];
+const PRESETS = {
+  client: [0.506, 0.015, 0.296, 450000, 450000, 2.2],
+  typical: [0.506, 0.566, 0.535, 516069, 450000, 3.3]
+};
+const sig = z => 1 / (1 + Math.exp(-z));
+const fields = document.getElementById("fields");
+F.forEach((f, i) => {
+  const d = document.createElement("div");
+  d.className = "field";
+  d.innerHTML = `<div class="field-top"><span><label for="${f.id}">${f.name}</label></span><output id="${f.id}-o" for="${f.id}"></output></div>
+    <input type="range" id="${f.id}" min="${f.min}" max="${f.max}" step="${f.step}">
+    <span class="hint">${f.hint}</span>`;
+  fields.appendChild(d);
+});
+const inputs = F.map(f => document.getElementById(f.id));
+const avg = sig(M.b);
+document.getElementById("avgmark").style.left = Math.min(100, avg / 0.5 * 100) + "%";
+document.getElementById("avglabel").textContent = "average " + Math.round(avg * 100) + "%";
+
+function render() {
+  const contrib = F.map((f, i) => {
+    const v = parseFloat(inputs[i].value);
+    document.getElementById(f.id + "-o").textContent = f.fmt(v);
+    return M.coef[i] * (f.toX(v) - M.mean[i]) / M.std[i];
+  });
+  const p = sig(M.b + contrib.reduce((a, c) => a + c, 0));
+  document.getElementById("prob").textContent = Math.round(p * 100) + "%";
+  document.getElementById("meter").style.width = Math.min(100, p / 0.5 * 100) + "%";
+  const badge = document.getElementById("badge");
+  if (p < 0.1) { badge.textContent = "Low risk"; badge.style.color = "var(--ok)"; }
+  else if (p < 0.25) { badge.textContent = "Medium risk"; badge.style.color = "var(--accent)"; }
+  else { badge.textContent = "High risk"; badge.style.color = "var(--risk)"; }
+  // reasons sorted by size; each bar scaled to the largest possible effect of 2 log odds
+  const order = contrib.map((c, i) => [c, i]).sort((a, b) => Math.abs(b[0]) - Math.abs(a[0]));
+  const bars = document.getElementById("bars");
+  bars.innerHTML = "";
+  order.forEach(([c, i]) => {
+    const w = Math.min(50, Math.abs(c) / 2 * 50);
+    const row = document.createElement("div");
+    row.className = "bar";
+    const color = c >= 0 ? "var(--risk)" : "var(--safe)";
+    const pos = c >= 0 ? `left:50%;width:${w}%` : `left:${50 - w}%;width:${w}%`;
+    row.innerHTML = `<span>${F[i].name}</span><span class="track"><span class="fill" style="${pos};background:${color}"></span></span><span class="val" style="color:${color}">${c >= 0 ? "+" : ""}${c.toFixed(2)}</span>`;
+    bars.appendChild(row);
+  });
+}
+function setPreset(name) {
+  PRESETS[name].forEach((v, i) => inputs[i].value = v);
+  document.getElementById("p-client").setAttribute("aria-pressed", name === "client");
+  document.getElementById("p-typical").setAttribute("aria-pressed", name === "typical");
+  render();
+}
+inputs.forEach(el => el.addEventListener("input", () => {
+  document.getElementById("p-client").setAttribute("aria-pressed", "false");
+  document.getElementById("p-typical").setAttribute("aria-pressed", "false");
+  render();
+}));
+document.getElementById("p-client").addEventListener("click", () => setPreset("client"));
+document.getElementById("p-typical").addEventListener("click", () => setPreset("typical"));
+setPreset("client");
+</script>
+</body>
+</html>
